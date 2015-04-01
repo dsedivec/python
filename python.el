@@ -1219,11 +1219,13 @@ to the maximum available level.  When indentation is the minimum
 possible and PREVIOUS is non-nil, cycle back to the maximum
 level."
   (let ((follow-indentation-p
-         ;; Check if point is within indentation.
-         (and (<= (line-beginning-position) (point))
-              (>= (+ (line-beginning-position)
-                     (current-indentation))
-                  (point)))))
+         ;; Check if point is within indentation.  Note that using
+         ;; `current-column' here instead of this "relatively
+         ;; expensive" excursion led to problems in conjunction with
+         ;; smart-tabs-mode, where `current-column' would sometimes
+         ;; use smart-tabs-mode's large value of `tab-width', other
+         ;; times the normal value of `tab-width'.
+         (>= (save-excursion (back-to-indentation) (point)) (point))))
     (save-excursion
       (indent-line-to
        (python-indent-calculate-indentation previous))
