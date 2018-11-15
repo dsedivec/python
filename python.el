@@ -4236,7 +4236,27 @@ JUSTIFY should be used (if applicable) as in `fill-paragraph'."
             ('symmetric (and multi-line-p (cons 1 1)))))
          (fill-paragraph-function))
     (save-restriction
-      (narrow-to-region str-start-pos str-end-pos)
+      (narrow-to-region (save-excursion
+                          (goto-char (+ str-start-pos num-quotes))
+                          ;; If quote is followed by nothing but
+                          ;; continuation character and white space on
+                          ;; its line, then narrow starting at the
+                          ;; following line, so we don't tuck the
+                          ;; start of string content onto the same
+                          ;; line as its opening quote.  Example:
+                          ;;
+                          ;;     def f():
+                          ;;         x = '''
+                          ;;             wrap me!
+                          ;;         '''
+                          (forward-line (if (looking-at-p "\\s-*\\\\?\\s-*$")
+                                            1
+                                          0))
+                          ;; Always going to give line beginning
+                          ;; position so that the wrapping is indented
+                          ;; in line with the surrounding code.
+                          (point))
+                        str-end-pos)
       (fill-paragraph justify))
     (save-excursion
       (when (and (python-info-docstring-p) python-fill-docstring-style)
