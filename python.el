@@ -4771,58 +4771,50 @@ It must be a function with two arguments: TYPE and NAME.")
         (cons label pos)
       (cons label (cons (cons jump-label pos) tree)))))
 
-(defun python-imenu--build-tree (&optional min-indent prev-indent tree)
-  "Recursively build the tree of nested definitions of a node.
-Arguments MIN-INDENT, PREV-INDENT and TREE are internal and should
-not be passed explicitly unless you know what you are doing."
-  (setq min-indent (or min-indent 0)
-        prev-indent (or prev-indent python-indent-offset))
-  (let* ((pos (python-nav-backward-defun))
-         (defun-type-name (and pos (python-imenu--get-defun-type-name)))
-         (type (car defun-type-name))
-         (name (cadr defun-type-name))
-         (label (when name
-                  (funcall python-imenu-format-item-label-function type name)))
-         (indent (current-indentation))
-         (children-indent-limit (+ python-indent-offset min-indent)))
-    (cond ((not pos)
-           ;; Nothing found, probably near to bobp.
-           nil)
-          ((<= indent min-indent)
-           ;; The current indentation points that this is a parent
-           ;; node, add it to the tree and stop recursing.
-           (python-imenu--put-parent type name pos tree))
-          (t
-           (python-imenu--build-tree
-            min-indent
-            indent
-            (if (<= indent children-indent-limit)
-                ;; This lies within the children indent offset range,
-                ;; so it's a normal child of its parent (i.e., not
-                ;; a child of a child).
-                (cons (cons label pos) tree)
-              ;; Oh no, a child of a child?!  Fear not, we
-              ;; know how to roll.  We recursively parse these by
-              ;; swapping prev-indent and min-indent plus adding this
-              ;; newly found item to a fresh subtree.  This works, I
-              ;; promise.
-              (cons
-               (python-imenu--build-tree
-                prev-indent indent (list (cons label pos)))
-               tree)))))))
-
 (defun python-imenu-create-index ()
-  "Return tree Imenu alist for the current Python buffer.
-Change `python-imenu-format-item-label-function',
-`python-imenu-format-parent-item-label-function',
-`python-imenu-format-parent-item-jump-label-function' to
-customize how labels are formatted."
   (goto-char (point-max))
-  (let ((index)
-        (tree))
-    (while (setq tree (python-imenu--build-tree))
-      (setq index (cons tree index)))
-    index))
+  (cl-loop
+     with siblings = nil
+     with stack = nil
+     with last-indent = 0
+     for pos = (python-nav-backward-defun)
+     while pos
+     do
+       (let* ((defun-type-name (python-imenu--get-defun-type-name))
+              (type (car defun-type-name))
+              (name (cadr defun-type-name))
+              (label (when name
+                       (funcall python-imenu-format-item-label-function
+                                type name)))
+              (indent (current-indentation)))
+         (cond
+           ((= indent last-indent)
+            (push (cons label pos) siblings))
+           ((< indent last-indent)
+            (cl-assert siblings t)
+            (let ((branch (python-imenu--put-parent type name pos siblings)))
+              (if (or (null stack) (> indent (caar stack)))
+                  ;; The siblings at the top of the stack are at a
+                  ;; less-indented level than the current line, or
+                  ;; else there is no prior list of siblings, which
+                  ;; means we just create a new set of siblings with
+                  ;; the current line as its only member.
+                  (setq siblings (list branch))
+                (setq siblings (cons branch (cdr (pop stack)))))))
+           (t
+            (cl-assert (> indent last-indent) t)
+            ;; We're entering a higher level of indent, start
+            ;; collecting a list of siblings for some future parent.
+            (push (cons last-indent siblings) stack)
+            (setq siblings (list (cons label pos)))))
+         (setq last-indent indent))
+     finally
+       (while stack
+         ;; You should probably never have to get in here, especially
+         ;; not if you have a syntactically-correct Python file.
+         (let ((branch (cons "<Unknown>" siblings)))
+           (setq siblings (cons branch (cdr (pop stack))))))
+       (cl-return siblings)))
 
 (defun python-imenu-create-flat-index (&optional alist prefix)
   "Return flat outline of the current Python buffer for Imenu.
