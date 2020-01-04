@@ -1924,8 +1924,14 @@ DIR is always 1 or -1 and comes sanitized from
 `python-nav-up-list' calls."
   (let ((context (python-syntax-context-type))
         (forward-p (> dir 0)))
+    (when (eq context 'comment)
+      (python-util-forward-comment)
+      (setq context (python-syntax-context-type)))
     (cond
-     ((memq context '(string comment)))
+     ((eq context 'comment))
+     ((eq context 'string)
+      (let ((forward-sexp-function))
+        (up-list dir t t)))
      ((eq context 'paren)
       (let ((forward-sexp-function))
         (up-list dir)))
