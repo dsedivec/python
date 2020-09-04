@@ -1392,7 +1392,9 @@ the line will be re-indented automatically if needed."
            (not (python-syntax-comment-or-string-p)))
       ;; Just re-indent dedenters
       (let ((dedenter-pos (python-info-dedenter-statement-p)))
-        (when dedenter-pos
+        (when (and dedenter-pos
+                   (<= (python-indent-calculate-indentation)
+                       (current-indentation)))
           (let ((start (copy-marker dedenter-pos))
                 (end (point-marker)))
             (save-excursion
