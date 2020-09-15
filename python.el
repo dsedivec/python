@@ -5054,6 +5054,7 @@ likely an invalid python file."
                            ;; block and the current line, otherwise it
                            ;; is not an opening block.
                            (save-excursion
+                             (python-nav-end-of-statement)
                              (forward-line)
                              (let ((no-back-indent t))
                                (save-match-data
