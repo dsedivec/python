@@ -4642,6 +4642,11 @@ fetching."
                      (message "`python-eldoc-function' timed out, see `python-eldoc-function-timeout'")))
       (python-eldoc--get-doc-at-point))))
 
+(unless (fboundp 'format-prompt)
+  ;; `format-prompt' was added (will be added) in Emacs 28.
+  (defun format-prompt (prompt default)
+    (format "%s (default %s): " prompt default)))
+
 (defun python-eldoc-at-point (symbol)
   "Get help on SYMBOL using `help'.
 Interactively, prompt for symbol."
